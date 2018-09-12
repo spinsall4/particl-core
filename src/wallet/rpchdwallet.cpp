@@ -6359,6 +6359,7 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
             "         \"address\": \"str\"          (string, required) The particl address\n"
             "         \"amount\": x.xxx           (numeric or string, required) The numeric value (can be string) in " + CURRENCY_UNIT + " of the output\n"
             "         \"data\": \"hex\",            (string, required) The key is \"data\", the value is hex encoded data\n"
+            "         \"data_ct_fee\": x.xxx,     (numeric, optional) If type is \"data\" and output is at index 0, then it will be treated as a CT fee output\n"
             "         \"script\": \"str\",          (string, optional) Specify script directly.\n"
             "         \"type\": \"str\",            (string, optional, default=\"plain\") The type of output to create, plain, blind or anon.\n"
             "         \"pubkey\": \"hex\",          (string, optional) The key is \"pubkey\", the value is hex encoded public key for encrypting the metadata\n"
@@ -6410,6 +6411,7 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
 
     bool rbfOptIn = request.params[3].isTrue();
 
+    CAmount nCtFee = 0;
     std::map<int, uint256> mInputBlinds;
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
@@ -6528,6 +6530,16 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
             r.vData = ParseHex(s);
         }
 
+        if (o["data_ct_fee"].isStr() || o["data_ct_fee"].isNum())
+        {
+            if(nType != OUTPUT_DATA)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "\"data_ct_fee\" can only appear in output of type \"data\".");
+
+            if (idx != 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "\"data_ct_fee\" can only appear in vout 0.");
+            nCtFee = AmountFromValue(o["data_ct_fee"]);
+        };
+
         if (o["address"].isStr() && o["script"].isStr()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Can't specify both \"address\" and \"script\".");
         }
@@ -6610,6 +6622,11 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
         */
         r.n = rawTx.vpout.size();
         rawTx.vpout.push_back(txbout);
+
+        if (nCtFee != 0 && i == 0) {
+            txbout->SetCTFee(nCtFee);
+            continue;
+        }
 
         UniValue amount(UniValue::VOBJ);
         amount.pushKV("value", ValueFromAmount(r.nAmount));
