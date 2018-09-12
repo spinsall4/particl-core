@@ -6538,11 +6538,13 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
 
         if (o["data_ct_fee"].isStr() || o["data_ct_fee"].isNum())
         {
-            if(nType != OUTPUT_DATA)
+            if (nType != OUTPUT_DATA) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "\"data_ct_fee\" can only appear in output of type \"data\".");
+            }
 
-            if (idx != 0)
+            if (idx != 0) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "\"data_ct_fee\" can only appear in vout 0.");
+            }
             nCtFee = AmountFromValue(o["data_ct_fee"]);
         };
 
@@ -6596,7 +6598,7 @@ static UniValue createrawparttransaction(const JSONRPCRequest& request)
             {
                 const UniValue &rangeproofParams = o["rangeproof_params"].get_obj();
 
-                if(!rangeproofParams["min_value"].isNum() || !rangeproofParams["ct_exponent"].isNum() || !rangeproofParams["ct_bits"].isNum()) {
+                if (!rangeproofParams["min_value"].isNum() || !rangeproofParams["ct_exponent"].isNum() || !rangeproofParams["ct_bits"].isNum()) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "All range proof parameters must be numeric.");
                 }
 
