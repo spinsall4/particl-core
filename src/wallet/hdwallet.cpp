@@ -3079,7 +3079,7 @@ int CHDWallet::AddCTData(CTxOutBase *txout, CTempRecipient &r, std::string &sErr
         return wserrorN(1, sError, __func__, "SelectRangeProofParameters failed.");
     }
 
-    if(r.fOverwriteRangeProofParams == true) {
+    if (r.fOverwriteRangeProofParams == true) {
         min_value = r.min_value;
         ct_exponent = r.ct_exponent;
         ct_bits = r.ct_bits;
