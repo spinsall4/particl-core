@@ -7225,6 +7225,107 @@ static UniValue verifycommitment(const JSONRPCRequest &request)
     return result;
 };
 
+static UniValue generatematchingblindfactor(const JSONRPCRequest &request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "generatematchingblindfactor [\"blind_in\"] [\"blind_out\"] \n"
+            "\nGenerates the last blinding factor for a set of inputs and outputs.\n"
+
+            "\nArguments:\n"
+            "1. \"inputs\"                     (array, required) 32byte blind factor hex strings\n"
+            "2. \"outputs\"                    (array, required) 32byte blind factor hex strings\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"blind\": true,                (string) 32byte blind factor.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("generatematchingblindfactor", "[\"blindfactor_input\",\"blindfactor_input2\"] [\"blindfactor_output\"]")
+            + HelpExampleRpc("generatematchingblindfactor", "[\"blindfactor_input\",\"blindfactor_input2\"] [\"blindfactor_output\"]")
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VARR});
+
+    std::vector<uint8_t> vBlinds;
+    std::vector<uint8_t*> vpBlinds;
+
+    if (!request.params[0].isArray()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Inputs must be an array of hex encoded blind factors.");
+    }
+
+    if (!request.params[1].isArray()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Outputs must be an array of hex encoded blind factors.");
+    }
+
+    UniValue inputs = request.params[0].get_array();
+    UniValue outputs = request.params[1].get_array();
+
+    if (inputs.size() < 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Inputs should contain at least one element.");
+    }
+
+    if (outputs.size() < 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Outputs should contain at least one element.");
+    }
+
+    if (inputs.size() < outputs.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Outputs should be at least one element smaller than the inputs array.");
+    }
+
+    vBlinds.resize((inputs.size() + outputs.size()) * 32);
+
+    for (unsigned int idx = 0; idx < inputs.size(); idx++)
+    {
+        std::string sBlind = inputs[idx].get_str();
+        if (!IsHex(sBlind) || !(sBlind.size() == 64))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Blinding factor must be 32 bytes and hex encoded.");
+
+        uint256 blind;
+        blind.SetHex(sBlind);
+
+        const int index = idx * 32;
+        memcpy(&vBlinds[index], blind.begin(), 32);
+
+        vpBlinds.push_back(&vBlinds[index]);
+    }
+
+    // size of inputs
+    size_t nBlindedInputs = vpBlinds.size();
+
+    for (unsigned int idx = 0; idx < outputs.size(); idx++)
+    {
+        std::string sBlind = outputs[idx].get_str();
+        if (!IsHex(sBlind) || !(sBlind.size() == 64))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Blinding factor must be 32 bytes and hex encoded.");
+
+        uint256 blind;
+        blind.SetHex(sBlind);
+
+        const int index = nBlindedInputs * 32 + idx * 32;
+        memcpy(&vBlinds[index], blind.begin(), 32);
+
+        vpBlinds.push_back(&vBlinds[index]);
+    }
+
+    // final matching blind factor
+    std::vector<uint8_t> final;
+    final.resize(32);
+
+    // Last to-be-blinded value: compute from all other blinding factors.
+    // sum of output blinding values must equal sum of input blinding values
+    if (!secp256k1_pedersen_blind_sum(secp256k1_ctx_blind, &final[0], &vpBlinds[0], vpBlinds.size(), nBlindedInputs)) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "secp256k1_pedersen_blind_sum failed");
+    }
+
+    UniValue result(UniValue::VOBJ);
+    if (final.size() == 32)
+    {
+        uint256 blind(final.data(), 32);
+        result.pushKV("blind", blind.ToString());
+    };
+    return result;
+};
+
 static UniValue verifyrawtransaction(const JSONRPCRequest &request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
@@ -7495,6 +7596,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "createrawparttransaction",         &createrawparttransaction,      {"inputs","outputs","locktime","replaceable"} },
     { "rawtransactions",    "fundrawtransactionfrom",           &fundrawtransactionfrom,        {"input_type","hexstring","input_amounts","output_amounts","options"} },
     { "rawtransactions",    "verifycommitment",                 &verifycommitment,              {"commitment","blind","amount"} },
+    { "rawtransactions",    "generatematchingblindfactor",      &generatematchingblindfactor,   {"inputs","outputs"} },
     { "rawtransactions",    "verifyrawtransaction",             &verifyrawtransaction,          {"hexstring","prevtxs","returndecoded"} },
 };
 
