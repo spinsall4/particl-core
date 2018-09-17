@@ -3684,7 +3684,7 @@ int CHDWallet::AddStandardInputs(CWalletTx &wtx, CTransactionRecord &rtx,
                         if (r.vBlind.size() != 32) {
                             r.vBlind.resize(32);
                             GetStrongRandBytes(&r.vBlind[0], 32);
-                        }
+                        } // else already prefilled
                         vpBlinds.push_back(&r.vBlind[0]);
                     }
 
@@ -4196,7 +4196,7 @@ int CHDWallet::AddBlindedInputs(CWalletTx &wtx, CTransactionRecord &rtx,
                     if (r.vBlind.size() != 32) {
                         r.vBlind.resize(32);
                         GetStrongRandBytes(&r.vBlind[0], 32);
-                    }
+                    } // else already prefilled
 
                     if (0 != AddCTData(txbout.get(), r, sError)) {
                         return 1; // sError will be set
@@ -4835,7 +4835,7 @@ int CHDWallet::AddAnonInputs(CWalletTx &wtx, CTransactionRecord &rtx,
                     if (r.vBlind.size() != 32) {
                         r.vBlind.resize(32);
                         GetStrongRandBytes(&r.vBlind[0], 32);
-                    }
+                    } // else prefilled already
 
                     if (0 != AddCTData(txbout.get(), r, sError)) {
                         return 1; // sError will be set

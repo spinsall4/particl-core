@@ -4368,7 +4368,7 @@ static UniValue listunspentblind(const JSONRPCRequest &request)
 
 
 static int AddOutput(uint8_t nType, std::vector<CTempRecipient> &vecSend, const CTxDestination &address, CAmount nValue,
-    bool fSubtractFeeFromAmount, std::string &sNarr, std::string &sError)
+    bool fSubtractFeeFromAmount, std::string &sNarr, std::string &sBlind, std::string &sError)
 {
     CTempRecipient r;
     r.nType = nType;
@@ -4376,6 +4376,14 @@ static int AddOutput(uint8_t nType, std::vector<CTempRecipient> &vecSend, const 
     r.fSubtractFeeFromAmount = fSubtractFeeFromAmount;
     r.address = address;
     r.sNarration = sNarr;
+
+    if (!sBlind.empty()) {
+        uint256 blind;
+        blind.SetHex(sBlind);
+
+        r.vBlind.resize(32);
+        memcpy(r.vBlind.data(), blind.begin(), 32);
+    }
 
     vecSend.push_back(r);
     return 0;
@@ -4469,7 +4477,16 @@ static UniValue SendToInner(const JSONRPCRequest &request, OutputTypes typeIn, O
                 sNarr = obj["narr"].get_str();
             }
 
-            if (0 != AddOutput(typeOut, vecSend, address.Get(), nAmount, fSubtractFeeFromAmount, sNarr, sError)) {
+            std::string sBlind;
+            if (obj.exists("blindingfactor")) {
+                std::string s = obj["blindingfactor"].get_str();
+                if (!IsHex(s) || !(s.size() == 64))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Blinding factor must be 32 bytes and hex encoded.");
+
+                sBlind = s;
+            }
+
+            if (0 != AddOutput(typeOut, vecSend, address.Get(), nAmount, fSubtractFeeFromAmount, sNarr, sBlind, sError)) {
                 throw JSONRPCError(RPC_MISC_ERROR, strprintf("AddOutput failed: %s.", sError));
             }
 
@@ -4526,7 +4543,10 @@ static UniValue SendToInner(const JSONRPCRequest &request, OutputTypes typeIn, O
             }
         }
 
-        if (0 != AddOutput(typeOut, vecSend, address.Get(), nAmount, fSubtractFeeFromAmount, sNarr, sError)) {
+        // Always empty
+        std::string sBlind;
+
+        if (0 != AddOutput(typeOut, vecSend, address.Get(), nAmount, fSubtractFeeFromAmount, sNarr, sBlind, sError)) {
             throw JSONRPCError(RPC_MISC_ERROR, strprintf("AddOutput failed: %s.", sError));
         }
     }
@@ -4962,19 +4982,20 @@ UniValue sendtypeto(const JSONRPCRequest &request)
             "\nSend part to multiple outputs.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
-            "1. \"typein\"          (string, required) part/blind/anon\n"
-            "2. \"typeout\"         (string, required) part/blind/anon\n"
-            "3. \"outputs\"         (json, required) Array of output objects\n"
-            "    3.1 \"address\"    (string, required) The particl address to send to.\n"
-            "    3.2 \"amount\"     (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
-            "    3.x \"narr\"       (string, optional) Up to 24 character narration sent with the transaction.\n"
-            "    3.x \"subfee\"     (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "    3.x \"script\"     (string, optional) Hex encoded script, will override the address.\n"
-            "4. \"comment\"         (string, optional) A comment used to store what the transaction is for. \n"
-            "                            This is not part of the transaction, just kept in your wallet.\n"
-            "5. \"comment_to\"      (string, optional) A comment to store the name of the person or organization \n"
-            "                            to which you're sending the transaction. This is not part of the \n"
-            "                            transaction, just kept in your wallet.\n"
+            "1. \"typein\"                  (string, required) part/blind/anon\n"
+            "2. \"typeout\"                 (string, required) part/blind/anon\n"
+            "3. \"outputs\"                 (json, required) Array of output objects\n"
+            "    3.1 \"address\"            (string, required) The particl address to send to.\n"
+            "    3.2 \"amount\"             (numeric or string, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
+            "    3.x \"narr\"               (string, optional) Up to 24 character narration sent with the transaction.\n"
+            "    3.x \"blindingfactor\"     (string, optional) The blinding factor, 32 bytes and hex encoded.\n"
+            "    3.x \"subfee\"             (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
+            "    3.x \"script\"             (string, optional) Hex encoded script, will override the address.\n"
+            "4. \"comment\"                 (string, optional) A comment used to store what the transaction is for. \n"
+            "                                   This is not part of the transaction, just kept in your wallet.\n"
+            "5. \"comment_to\"              (string, optional) A comment to store the name of the person or organization \n"
+            "                                   to which you're sending the transaction. This is not part of the \n"
+            "                                   transaction, just kept in your wallet.\n"
             "6. ringsize         (int, optional, default=4) Only applies when typein is anon.\n"
             "7. inputs_per_sig   (int, optional, default=32) Only applies when typein is anon.\n"
             "8. test_fee         (bool, optional, default=false) Only return the fee it would cost to send, txn is discarded.\n"
