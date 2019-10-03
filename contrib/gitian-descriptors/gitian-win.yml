@@ -25,7 +25,7 @@ packages:
 - "python3"
 - "rename"
 remotes:
-- "url": "https://github.com/particl/particl-core.git"
+- "url": "https://github.com/spinsall4/particl-core.git"
   "dir": "particl-core"
 files: []
 script: |

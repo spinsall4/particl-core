@@ -24,7 +24,7 @@ packages:
 - "apt-transport-https"
 - "libjpeg-dev"
 remotes:
-- "url": "https://github.com/particl/particl-desktop"
+- "url": "https://github.com/spinsall4/particl-desktop"
   "dir": "particl-desktop"
 files: []
 script: |

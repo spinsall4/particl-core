@@ -29,7 +29,7 @@ packages:
 - "python3-setuptools"
 - "fonts-tuffy"
 remotes:
-- "url": "https://github.com/particl/particl-core.git"
+- "url": "https://github.com/spinsall4/particl-core.git"
   "dir": "particl-core"
 files:
 - "MacOSX10.11.sdk.tar.gz"
